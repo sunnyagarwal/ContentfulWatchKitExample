@@ -14,17 +14,29 @@ import UIKit
 class AppDelegate: UIResponder, UIApplicationDelegate, CLLocationManagerDelegate {
 
     var locationManager: CLLocationManager?
+    var watchKitReply: (([NSObject : AnyObject]!) -> Void)! = nil
     var window: UIWindow?
 
-
-    func application(application: UIApplication, didFinishLaunchingWithOptions launchOptions: [NSObject: AnyObject]?) -> Bool {
+    func startUpdatingLocation() {
         locationManager = CLLocationManager()
         locationManager!.delegate = self;
         locationManager!.desiredAccuracy = kCLLocationAccuracyHundredMeters
         locationManager!.distanceFilter = 1000
-        locationManager!.requestWhenInUseAuthorization()
+        locationManager!.requestAlwaysAuthorization()
         locationManager!.startUpdatingLocation()
+    }
+
+    func application(application: UIApplication, didFinishLaunchingWithOptions launchOptions: [NSObject: AnyObject]?) -> Bool {
+        startUpdatingLocation()
         return true
+    }
+
+    func application(application: UIApplication!, handleWatchKitExtensionRequest userInfo: [NSObject : AnyObject]!, reply: (([NSObject : AnyObject]!) -> Void)!) {
+        NSLog("Received WatchKit extension request.")
+
+        startUpdatingLocation()
+
+        self.watchKitReply = reply
     }
 
     func locationManager(manager: CLLocationManager!, didUpdateToLocation newLocation: CLLocation!, fromLocation oldLocation: CLLocation!) {
@@ -33,11 +45,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate, CLLocationManagerDelegate
         }
 
         var location = newLocation!.coordinate
-        let userDefaults = NSUserDefaults(suiteName: "group.com.contentful.WatchKitExample")
-        userDefaults!.setValue(NSData(bytes: &location, length: sizeof(CLLocationCoordinate2D)), forKey:"currentLocation")
-        userDefaults!.synchronize()
 
-        NSLog("Written location to user defaults.")
+        if let reply = self.watchKitReply {
+            reply(["currentLocation": NSValue(MKCoordinate:location)])
+        }
+
+        NSLog("Sent location to WatchKit extension.")
     }
 
     func applicationWillResignActive(application: UIApplication) {
